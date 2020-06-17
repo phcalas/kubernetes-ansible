@@ -1,0 +1,12 @@
+.idea/
+*.retry
+
+# critical files
+centos/hosts
+centos/playbooks/env_variables
+ansible.cfg
+
+# Remove test files
+test*
+# Token generated for cluster
+join_token

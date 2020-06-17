@@ -4,50 +4,66 @@
   vars_files:
   - env_variables
   tasks:
-  - name: Creating a repository file for Kubernetes
-    file:
-     path: /etc/yum.repos.d/kubernetes.repo
-     state: touch
 
-  - name: Adding repository details in Kubernetes repo file.
-    blockinfile:
-     path: /etc/yum.repos.d/kubernetes.repo
-     block: |
-      [kubernetes]
-      name=Kubernetes
-      baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-      enabled=1
-      gpgcheck=1
-      repo_gpgcheck=1
-      gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
-        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  - name: make sure dnf-plugins.core installed
+    dnf:
+      name: dnf-plugins-core
+      state: present
 
-  - name: Installing Docker and firewalld
-    shell: |
-     yum install firewalld -y
-     yum install -y yum-utils device-mapper-persistent-data lvm2
-     yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-     yum install docker-ce -y --nobest
+  - name: install repository Docker
+    command: dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+
+  - name: make sure docker from distro is not installed
+    yum:
+      name: "{{ item }}"
+      state: absent
+    with_items:
+      - docker
+      - docker-common
+      - container-selinux
+      - docker-selinux
+      - docker-engine
+
+  - name: install docker and firewalld
+    dnf:
+      name: "{{ item }}"
+      state: present
+    with_items:
+      - docker-ce-18.06.3.ce-3.el7
+      - firewalld
+
+  - name: Add repository Kubernetes
+    yum_repository:
+      name: kubernetes
+      description: Kubernetes YUM repo
+      baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      enabled: yes
+      gpgcheck: yes
+      repo_gpgcheck: yes
+      gpgkey: "https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg"
+      exclude: kubelet kubeadm kubectl
+      state: present
 
   - name: Installing required packages
-    yum:
-     name: "{{ item }}"
-     state: present
+    dnf:
+      name: "{{ item }}"
+      state: present
+      disable_excludes: kubernetes
     with_items: "{{ packages }}"
 
   - name: Starting and Enabling the required services
     service:
-     name: "{{ item }}"
-     state: started
-     enabled: yes
+      name: "{{ item }}"
+      state: started
+      enabled: yes
     with_items: "{{ services }}"
 
   - name: Allow Network Ports in Firewalld
     firewalld:
-     port: "{{ item }}"
-     state: enabled
-     permanent: yes
-     immediate: yes
+      port: "{{ item }}"
+      state: enabled
+      permanent: yes
+      immediate: yes
     with_items: "{{ ports }}"
 
   - name: Enabling Bridge Firewall Rule

@@ -1,0 +1,26 @@
+---
+- hosts: all
+  become: yes
+  vars_files:
+  - env_variables
+  tasks:
+    - name: Stopping and Disabling the required services
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      with_items: "{{ services }}"
+
+    - name: Uninstalling required packages
+      dnf:
+        name: "{{ packages }}"
+        state: absent
+
+    - name: remove repository Docker
+      command: dnf config-manager --disable -x docker-ce
+
+    - name: Del repository Kubernetes
+      yum_repository:
+        name: kubernetes
+        description: Kubernetes YUM repo
+        state: absent
